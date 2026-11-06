@@ -291,6 +291,37 @@ sudo systemctl enable nginx
 
 Para cambios normales de Nginx, usa `reload`, no `restart`.
 
+### Inspeccionar por qué un servicio no arranca
+
+Antes de editar o reiniciar repetidamente una API, comprueba qué configuración está usando realmente `systemd` y qué ocurrió desde el último arranque del VPS:
+
+```bash
+# Muestra el archivo .service y cualquier ajuste adicional (drop-in)
+sudo systemctl cat mi-api
+
+# Muestra datos clave de la unidad, sin abrir un editor
+sudo systemctl show mi-api -p FragmentPath -p User -p WorkingDirectory -p ExecStart
+
+# Estado breve, PID principal y últimas líneas del arranque actual
+sudo systemctl show mi-api -p ActiveState -p SubState -p MainPID
+sudo journalctl -u mi-api -b -n 80 --no-pager
+```
+
+- `systemctl cat`: enseña el archivo principal y los ajustes que lo sobrescriben.
+- `FragmentPath`: indica la ruta del `.service` que se está cargando.
+- `-b`: limita el log al arranque actual; evita mezclar errores antiguos.
+- `MainPID`: es el proceso principal del servicio cuando está activo.
+
+Lo normal es ver `ActiveState=active`, `SubState=running` y un PID mayor que cero. Si aparece `failed` varias veces, arregla primero el error del log. Después de modificar un archivo `.service`, aplica el cambio de forma ordenada:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart mi-api
+sudo systemctl status mi-api --no-pager
+```
+
+Si `systemd` ha bloqueado el servicio por demasiados reinicios, usa `sudo systemctl reset-failed mi-api` **solo después** de corregir la causa. No publiques la salida completa de `systemctl cat` si incluye secretos directamente en el servicio; guarda las claves en un `EnvironmentFile` con permisos restringidos.
+
 ### Servicio para una API NestJS
 
 Archivo `/etc/systemd/system/mi-api.service`:
