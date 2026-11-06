@@ -365,6 +365,28 @@ Errores típicos:
 
 Los logs pueden contener IP, rutas o datos personales: no los publiques completos ni los borres manualmente.
 
+### Buscar el dato relevante con `grep`
+
+`grep` filtra líneas por texto. Sirve para no tener que leer un log entero ni buscar a mano en muchos archivos de configuración.
+
+```bash
+# Errores de Nginx sin distinguir mayúsculas de minúsculas
+sudo grep -i "error" /var/log/nginx/error.log
+
+# Dónde se menciona el puerto 3000 en la configuración de Nginx
+sudo grep -Rni "3000" /etc/nginx/
+
+# Dos líneas antes y después de cada respuesta 502
+sudo grep -C 2 "502" /var/log/nginx/access.log
+```
+
+- `-i`: ignora mayúsculas/minúsculas.
+- `-R`: busca de forma recursiva en subdirectorios.
+- `-n`: muestra el número de línea.
+- `-C 2`: añade dos líneas de contexto antes y después.
+
+Lo esperado es localizar el archivo y el momento exacto del problema. No uses `grep` sobre directorios enormes como `/` y evita compartir resultados que contengan tokens, cookies o datos personales.
+
 ---
 
 ## 7. Puertos y conectividad local
@@ -374,6 +396,7 @@ sudo ss -tulpn
 sudo ss -tulpn | grep 3000
 curl -I http://localhost
 curl -i http://127.0.0.1:3000/api/prueba
+sudo lsof -i :3000
 ```
 
 Resultado deseado aproximado:
@@ -385,6 +408,38 @@ Resultado deseado aproximado:
 ```
 
 Si Node escucha en `127.0.0.1:3000`, solo Nginx y el propio VPS pueden acceder a la API. Es la opción recomendada si Nginx es el proxy inverso.
+
+`lsof` muestra qué proceso posee un puerto. Si aparece `node`, junto a su PID, ese proceso está usando el puerto; si no devuelve nada, nadie escucha ahí. Para ver el comando completo del proceso puedes usar:
+
+```bash
+ps aux | grep node
+```
+
+Si el puerto está ocupado por una instancia antigua, revisa primero el servicio:
+
+```bash
+sudo systemctl restart mi-api
+sudo lsof -i :3000
+```
+
+No mates procesos con `kill -9` como primera opción: puede dejar archivos o conexiones en un estado inconsistente. Confirma también que la API escuche en `127.0.0.1`, no en `0.0.0.0`, salvo que necesites exponerla deliberadamente.
+
+### Comprobar una ruta de salud con `curl`
+
+Una ruta `GET /health` que no requiere credenciales es una comprobación pequeña y muy útil tras desplegar.
+
+```bash
+# Comprueba la API directamente, sin pasar por Nginx
+curl -i http://127.0.0.1:3000/health
+
+# Comprueba el proxy de Nginx y la ruta pública interna
+curl -i http://localhost/api/health
+
+# Muestra solo el código HTTP, útil en scripts de despliegue
+curl -s -o /dev/null -w "%{http_code}\\n" http://localhost/api/health
+```
+
+Lo normal es recibir `200 OK`. Si la primera llamada funciona y la segunda no, revisa `location /api/`, `proxy_pass` y el log de error de Nginx. Si ambas fallan, revisa el servicio Node.js, sus variables de entorno y la conexión a la base de datos. No incluyas secretos ni datos privados en la respuesta de `/health`.
 
 ---
 
@@ -609,9 +664,18 @@ sudo -u postgres pg_dump -Fc mi_base > /var/backups/mi_base_$(date +%F).dump
 Restauración de prueba:
 
 ```bash
-createdb mi_base_prueba
-pg_restore -d mi_base_prueba /var/backups/mi_base_2026-10-31.dump
+sudo -u postgres createdb mi_base_prueba
+sudo -u postgres pg_restore -d mi_base_prueba /var/backups/mi_base_2026-10-31.dump
 ```
+
+Antes de restaurar, comprueba que el fichero se creó y puede leerse:
+
+```bash
+ls -lh /var/backups/mi_base_$(date +%F).dump
+sudo -u postgres pg_restore -l /var/backups/mi_base_2026-10-31.dump | head
+```
+
+`pg_restore -l` lista el contenido sin modificar ninguna base de datos. Una restauración de prueba debe hacerse en una base vacía con otro nombre, nunca sobre producción. Cuando termines, borra la base de prueba solo si has confirmado el resultado y ya no la necesitas.
 
 ### MySQL
 
@@ -665,7 +729,34 @@ Primero identifica qué creció. No borres bases de datos, logs o directorios de
 
 ---
 
-## 15. Rutina recomendada
+## 15. Actualizar Ubuntu de forma segura
+
+Actualizar corrige fallos de seguridad y errores, pero conviene hacerlo con una sesión SSH estable y una copia reciente de la base de datos antes de tocar paquetes importantes.
+
+```bash
+# Actualiza el catálogo de paquetes: todavía no instala nada
+sudo apt update
+
+# Revisa qué paquetes tienen actualización disponible
+apt list --upgradable
+
+# Instala actualizaciones normales
+sudo apt upgrade
+```
+
+Al terminar, comprueba que no haya servicios fallidos y que la web siga respondiendo:
+
+```bash
+sudo systemctl --failed
+sudo systemctl status nginx mi-api --no-pager
+curl -s -o /dev/null -w "%{http_code}\\n" http://localhost/api/health
+```
+
+Se espera una lista vacía de unidades fallidas y un código `200`. Lee con cuidado el resumen de `apt upgrade` antes de aceptar: no uses `apt full-upgrade`, ni reinicies, sin entender qué paquetes se eliminarían o sustituirían. Si el sistema indica que hace falta reiniciar, planifica una ventana breve y verifica el acceso SSH antes.
+
+---
+
+## 16. Rutina recomendada
 
 ### Cada semana
 
@@ -696,7 +787,7 @@ Ese `&&` hace que la recarga solo se ejecute si la validación fue correcta.
 
 ---
 
-## 16. Comandos que conviene recordar
+## 17. Comandos que conviene recordar
 
 ```bash
 # Servicios y logs
@@ -711,6 +802,7 @@ sudo tail -f /var/log/nginx/error.log
 
 # Red y recursos
 sudo ss -tulpn
+sudo lsof -i :3000
 curl -I http://localhost
 df -h
 free -h
