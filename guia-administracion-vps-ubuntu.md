@@ -524,6 +524,29 @@ Antes de editar, crea una copia:
 sudo cp /etc/nginx/sites-available/mi-dominio /etc/nginx/sites-available/mi-dominio.bak
 ```
 
+### Ver la configuración efectiva con `nginx -T`
+
+Un sitio puede cargar archivos desde `sites-enabled`, `conf.d` o configuraciones incluidas. `nginx -T` valida la sintaxis y muestra la configuración completa que Nginx usaría. Es muy útil cuando no sabes qué bloque `server` atiende un dominio o de dónde sale un `proxy_pass`.
+
+```bash
+# Revisa toda la configuración de forma cómoda; pulsa q para salir
+sudo nginx -T 2>&1 | less
+
+# Localiza nombres de dominio y proxies activos
+sudo nginx -T 2>&1 | grep -nE 'server_name|proxy_pass'
+```
+
+Ejemplo de resultado:
+
+```text
+58:    server_name mi-dominio.ch www.mi-dominio.ch;
+71:        proxy_pass http://127.0.0.1:3000/;
+```
+
+Si ves varios bloques con el mismo `server_name`, revisa cuál debe permanecer activo y los enlaces de `/etc/nginx/sites-enabled/`. Antes de hacer cambios, valida siempre con `sudo nginx -t` y recarga solo si la prueba termina correctamente.
+
+**Precaución:** `nginx -T` puede mostrar rutas internas, certificados o valores incluidos en la configuración. No pegues su salida completa en foros o chats; comparte únicamente las líneas necesarias y oculta cualquier dato sensible.
+
 ### El detalle importante de `proxy_pass`
 
 Con este bloque:
