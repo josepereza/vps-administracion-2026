@@ -418,6 +418,27 @@ sudo grep -C 2 "502" /var/log/nginx/access.log
 
 Lo esperado es localizar el archivo y el momento exacto del problema. No uses `grep` sobre directorios enormes como `/` y evita compartir resultados que contengan tokens, cookies o datos personales.
 
+### Evitar que los logs llenen el disco
+
+Los logs antiguos pueden consumir todo el espacio del VPS. Ubuntu usa `logrotate` para comprimirlos, conservar solo un número limitado y crear archivos nuevos sin detener Nginx.
+
+```bash
+# Simula la rotación: no modifica nada
+sudo logrotate -d /etc/logrotate.conf
+
+# Comprueba el espacio ocupado por el journal de systemd
+sudo journalctl --disk-usage
+```
+
+Un resultado normal de `logrotate -d` enumera los ficheros que revisaría. Si el journal ocupa demasiado y ya has comprobado que no necesitas logs antiguos para investigar una incidencia, puedes conservar solo los últimos 14 días:
+
+```bash
+sudo journalctl --vacuum-time=14d
+sudo journalctl --disk-usage
+```
+
+`--vacuum-time=14d` elimina entradas antiguas del journal; no afecta a los archivos de Nginx en `/var/log/nginx/`. Antes de usarlo, revisa que una incidencia reciente no necesite esos logs y guarda fuera del VPS cualquier evidencia importante. No borres archivos de `/var/log` a mano mientras un servicio los está escribiendo.
+
 ---
 
 ## 7. Puertos y conectividad local
