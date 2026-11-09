@@ -600,6 +600,28 @@ curl -I https://mi-dominio.ch
 
 No ejecutes Certbot si `nginx -t` falla. El puerto 80 debe estar abierto temporalmente para la validación HTTP normal.
 
+### Comprobar la fecha de caducidad desde el VPS
+
+Puedes consultar el certificado que está sirviendo el dominio sin abrir un navegador:
+
+```bash
+echo | openssl s_client -connect mi-dominio.ch:443 -servername mi-dominio.ch 2>/dev/null \
+  | openssl x509 -noout -dates -issuer -subject
+```
+
+Ejemplo de resultado:
+
+```text
+notBefore=Nov  1 12:00:00 2026 GMT
+notAfter=Jan 30 12:00:00 2027 GMT
+issuer=C = US, O = Let's Encrypt, CN = E8
+subject=CN = mi-dominio.ch
+```
+
+`notAfter` es la fecha límite. `-servername` envía el nombre del sitio durante la conexión TLS; es importante en un VPS con varios dominios HTTPS. Si el dominio no resuelve hacia este VPS o el puerto 443 está cerrado, la conexión fallará.
+
+**Precaución:** sustituye siempre `mi-dominio.ch` por un dominio que controles. Este comando solo inspecciona el certificado público; no sustituye `sudo certbot renew --dry-run`, que comprueba la renovación automática.
+
 ---
 
 ## 10. Desplegar Angular
