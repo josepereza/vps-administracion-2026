@@ -697,6 +697,26 @@ curl -i http://localhost/api/health
 
 Si el primer comando funciona y el segundo no, el problema está en Nginx. Si ninguno funciona, está en Node.js, sus variables o su base de datos.
 
+### Revisar dependencias de producción con npm
+
+Antes de actualizar paquetes, mira qué dependencias tiene instalada la API y si npm detecta vulnerabilidades conocidas:
+
+```bash
+cd /var/www/mi-api
+npm ls --omit=dev --depth=0
+npm audit --omit=dev
+```
+
+`npm ls` muestra solo las dependencias directas necesarias en producción. `npm audit` revisa la información de vulnerabilidades conocida por npm; un resultado sin problemas termina con `found 0 vulnerabilities`.
+
+Si necesitas instalar únicamente dependencias de ejecución en un servidor donde el proyecto ya está compilado, usa:
+
+```bash
+npm ci --omit=dev
+```
+
+No lo uses antes de `npm run build` si tu compilación necesita herramientas de desarrollo como Angular CLI o TypeScript. Revisa cada aviso de `npm audit` y actualiza primero en una rama o entorno de prueba. Evita `npm audit fix --force` en producción: puede introducir cambios incompatibles.
+
 ### Permisos de las carpetas
 
 El usuario del servicio necesita leer el proyecto y, si guardas imágenes en el servidor, escribir solo en el directorio de uploads:
