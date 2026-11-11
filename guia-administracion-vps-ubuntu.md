@@ -875,6 +875,38 @@ Se espera una lista vacía de unidades fallidas y un código `200`. Lee con cuid
 
 ## 16. Rutina recomendada
 
+### Comprobar tareas automáticas con `systemd`
+
+Ubuntu usa *timers* de `systemd` para lanzar tareas programadas, como actualizaciones o rotación de logs. Para ver las próximas ejecuciones y la última vez que se ejecutaron:
+
+```bash
+systemctl list-timers --all
+systemctl list-timers --all | grep -E 'apt|logrotate'
+```
+
+Ejemplo simplificado:
+
+```text
+NEXT                         LAST                         UNIT
+Wed 2026-11-11 06:25:00 CET  Tue 2026-11-10 06:25:02 CET  apt-daily.timer
+```
+
+Para inspeccionar una tarea concreta:
+
+```bash
+systemctl status apt-daily.timer --no-pager
+systemctl status logrotate.timer --no-pager
+```
+
+`NEXT` indica cuándo volverá a ejecutarse y `LAST` cuándo terminó la última ejecución. Un timer puede estar activo aunque su tarea asociada haya fallado, así que revisa también su servicio si algo no se actualiza o no rota:
+
+```bash
+sudo systemctl status apt-daily.service --no-pager
+sudo systemctl status logrotate.service --no-pager
+```
+
+No desactives timers del sistema sin saber qué protegen: podrías dejar de recibir actualizaciones de seguridad o acumular logs. Estos comandos solo consultan el estado y no modifican nada.
+
 ### Cada semana
 
 ```bash
