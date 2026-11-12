@@ -728,6 +728,32 @@ sudo chmod 750 /var/www/mi-api/uploads
 
 No des permisos `777`: parecen resolver un error, pero abren una puerta de seguridad innecesaria.
 
+### Encontrar el permiso que bloquea una ruta con `namei`
+
+Un archivo puede tener permisos correctos y seguir dando `permission denied` si alguno de sus directorios padre no permite atravesarlo. `namei` muestra cada parte de la ruta con su propietario y permisos:
+
+```bash
+namei -l /var/www/mi-api/uploads/foto.jpg
+```
+
+Ejemplo abreviado:
+
+```text
+drwxr-xr-x root     root     /
+drwxr-x--- deploy   deploy   var
+drwxr-x--- www-data www-data uploads
+-rw-r----- www-data www-data foto.jpg
+```
+
+Para que Nginx o tu servicio llegue al archivo, necesita permiso `x` en cada directorio de la ruta y permiso `r` en el archivo. Corrige solamente el componente que falla, por ejemplo el directorio de uploads:
+
+```bash
+sudo chown -R www-data:www-data /var/www/mi-api/uploads
+sudo chmod 750 /var/www/mi-api/uploads
+```
+
+No uses `chmod -R 777` para ocultar el problema. Revisa primero con qué usuario se ejecuta el servicio (`systemctl show mi-api -p User`) y no concedas acceso a rutas que contienen secretos.
+
 ---
 
 ## 12. Base de datos: comprobaciones básicas
