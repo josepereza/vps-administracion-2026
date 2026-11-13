@@ -578,6 +578,19 @@ location /api/ { proxy_pass http://127.0.0.1:3000/; }
 
 La petición pública `/api/productos` llega a Node como `/productos`. Si tu backend necesita conservar `/api`, usa `proxy_pass http://127.0.0.1:3000;` (sin la barra final). Prueba una ruta real tras cada cambio.
 
+### Probar un dominio antes de cambiar DNS con `curl --resolve`
+
+`--resolve` hace que `curl` conecte un dominio a una IP concreta solo para esa prueba. Es útil para comprobar un nuevo VPS o un bloque de Nginx antes de modificar el DNS público:
+
+```bash
+curl -I --resolve mi-dominio.ch:80:203.0.113.10 http://mi-dominio.ch/
+curl -I --resolve mi-dominio.ch:443:203.0.113.10 https://mi-dominio.ch/
+```
+
+Lo esperado es una respuesta como `HTTP/1.1 200 OK` o una redirección `301/308` hacia HTTPS. Conserva el nombre del dominio en la URL: así Nginx recibe el `Host` correcto y puede seleccionar su bloque `server` adecuado.
+
+Sustituye `203.0.113.10` por la IP real del VPS. No uses `-k` para ocultar errores de certificado; si HTTPS falla, revisa el certificado, `server_name` y la configuración TLS antes de publicar el cambio DNS.
+
 ---
 
 ## 9. HTTPS con Certbot
