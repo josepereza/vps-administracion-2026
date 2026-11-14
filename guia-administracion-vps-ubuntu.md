@@ -578,6 +578,31 @@ location /api/ { proxy_pass http://127.0.0.1:3000/; }
 
 La petición pública `/api/productos` llega a Node como `/productos`. Si tu backend necesita conservar `/api`, usa `proxy_pass http://127.0.0.1:3000;` (sin la barra final). Prueba una ruta real tras cada cambio.
 
+### Comprobar cabeceras HTTP básicas de seguridad
+
+Antes de añadir reglas, mira las cabeceras que entrega tu web:
+
+```bash
+curl -I https://mi-dominio.ch
+```
+
+En el bloque `server` de Nginx puedes añadir estas cabeceras de bajo riesgo:
+
+```nginx
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+```
+
+Después valida, recarga y comprueba que aparecen:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+curl -I https://mi-dominio.ch
+```
+
+`nosniff` reduce interpretaciones inesperadas de archivos, `SAMEORIGIN` limita que otras webs incrusten la página y `Referrer-Policy` reduce la información de URL enviada a otros sitios. No añadas una Content-Security-Policy genérica sin probarla: una política demasiado estricta puede romper Angular, APIs externas, fuentes o imágenes.
+
 ### Probar un dominio antes de cambiar DNS con `curl --resolve`
 
 `--resolve` hace que `curl` conecte un dominio a una IP concreta solo para esa prueba. Es útil para comprobar un nuevo VPS o un bloque de Nginx antes de modificar el DNS público:
