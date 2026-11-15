@@ -493,6 +493,33 @@ curl -s -o /dev/null -w "%{http_code}\\n" http://localhost/api/health
 
 Lo normal es recibir `200 OK`. Si la primera llamada funciona y la segunda no, revisa `location /api/`, `proxy_pass` y el log de error de Nginx. Si ambas fallan, revisa el servicio Node.js, sus variables de entorno y la conexión a la base de datos. No incluyas secretos ni datos privados en la respuesta de `/health`.
 
+### Medir tiempos de respuesta con `curl`
+
+Una API puede responder con `200` y, aun así, tardar demasiado. Este comando descarta el cuerpo de la respuesta y muestra los tiempos principales:
+
+```bash
+curl -s -o /dev/null -w 'HTTP %{http_code}\nDNS: %{time_namelookup}s\nConexión: %{time_connect}s\nPrimer byte: %{time_starttransfer}s\nTotal: %{time_total}s\n' http://localhost/api/health
+```
+
+Un resultado típico en una ruta local sana sería:
+
+```text
+HTTP 200
+DNS: 0.000s
+Conexión: 0.001s
+Primer byte: 0.024s
+Total: 0.024s
+```
+
+`time_starttransfer` mide cuánto tarda en llegar el primer byte. Si aumenta, suele indicar que Node.js, una consulta a la base de datos o una dependencia externa está demorando la respuesta. Para separar la API del proxy, compara ambas rutas:
+
+```bash
+curl -s -o /dev/null -w 'API directa: %{time_total}s\n' http://127.0.0.1:3000/health
+curl -s -o /dev/null -w 'Por Nginx: %{time_total}s\n' http://localhost/api/health
+```
+
+En una ruta de salud local los tiempos normalmente son de milisegundos; conserva una referencia de antes del despliegue y repite la prueba varias veces. No expongas `127.0.0.1:3000` a Internet solo para medirlo y no saques conclusiones con una única muestra.
+
 ---
 
 ## 8. Nginx: publicar Angular y conectar la API
