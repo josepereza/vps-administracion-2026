@@ -520,6 +520,28 @@ curl -s -o /dev/null -w 'Por Nginx: %{time_total}s\n' http://localhost/api/healt
 
 En una ruta de salud local los tiempos normalmente son de milisegundos; conserva una referencia de antes del despliegue y repite la prueba varias veces. No expongas `127.0.0.1:3000` a Internet solo para medirlo y no saques conclusiones con una única muestra.
 
+### Comprobar una API tras desplegar con reintentos
+
+Durante un despliegue, Node.js puede tardar unos segundos en estar disponible. `curl` puede esperar y reintentar una ruta de salud sin ocultar un error real:
+
+```bash
+curl --fail --silent --show-error \
+  --retry 3 --retry-all-errors \
+  --connect-timeout 5 --max-time 15 \
+  http://localhost/api/health
+```
+
+`--fail` hace que los estados HTTP `4xx` y `5xx` cuenten como error; `--retry 3` repite la comprobación hasta tres veces y `--connect-timeout 5` evita esperar indefinidamente a que se abra la conexión. `--max-time 15` limita cada petición a quince segundos.
+
+Si la ruta responde bien, verás su JSON habitual y el comando acabará con código `0`:
+
+```bash
+curl --fail --silent --show-error http://localhost/api/health
+echo $?
+```
+
+El resultado esperado de `echo $?` es `0`. Puedes usarlo en un script de despliegue para detener el proceso si la API no está lista. Aplícalo solo a peticiones seguras de lectura, como `GET /health`: reintentar automáticamente un `POST` podría crear un pedido, un usuario u otra acción dos veces.
+
 ---
 
 ## 8. Nginx: publicar Angular y conectar la API
