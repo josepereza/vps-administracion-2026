@@ -371,6 +371,52 @@ JWT_SECRET=una_clave_larga_y_privada
 
 No pongas secretos en Git ni dentro del archivo `.service`.
 
+### Revisar el límite de archivos abiertos de una API
+
+Cada conexión HTTP, archivo de log o socket usa un descriptor de archivo. Si una API recibe muchas conexiones y llega a su límite, puede fallar con errores como `EMFILE: too many open files` aunque todavía tenga RAM disponible.
+
+```bash
+# Límite de la sesión actual de tu terminal
+ulimit -n
+
+# Límite real aplicado al servicio por systemd
+sudo systemctl show mi-api -p LimitNOFILE
+
+# Número de descriptores que usa ahora la API
+PID=$(sudo systemctl show mi-api -p MainPID --value)
+sudo ls /proc/$PID/fd | wc -l
+```
+
+Un resultado posible sería:
+
+```text
+LimitNOFILE=1024
+87
+```
+
+El primer valor es el máximo permitido para el servicio y el segundo son los descriptores usados en ese momento. Si el uso se acerca al límite de forma constante, crea un ajuste específico para la API:
+
+```bash
+sudo systemctl edit mi-api
+```
+
+En el editor añade:
+
+```ini
+[Service]
+LimitNOFILE=65536
+```
+
+Después aplica el cambio y verifica:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart mi-api
+sudo systemctl show mi-api -p LimitNOFILE
+```
+
+No aumentes límites de todos los servicios sin necesidad. Primero confirma con logs y métricas que existe presión real; un límite mayor no arregla una fuga de conexiones, archivos o sockets que la aplicación haya dejado abiertos.
+
 ---
 
 ## 6. Logs: tu primera herramienta para diagnosticar
