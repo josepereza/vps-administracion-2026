@@ -522,6 +522,31 @@ sudo lsof -i :3000
 
 No mates procesos con `kill -9` como primera opción: puede dejar archivos o conexiones en un estado inconsistente. Confirma también que la API escuche en `127.0.0.1`, no en `0.0.0.0`, salvo que necesites exponerla deliberadamente.
 
+### Contar conexiones activas hacia Node.js con `ss`
+
+Un puerto puede estar abierto y la API seguir teniendo problemas por demasiadas conexiones simultáneas. `ss` permite ver las conexiones TCP que llegan al puerto interno de Node.js:
+
+```bash
+# Puerto en escucha y proceso propietario
+sudo ss -tanlp '( sport = :3000 )'
+
+# Solo conexiones ya establecidas con la API
+sudo ss -tanp state established '( sport = :3000 )'
+
+# Contarlas, sin incluir la cabecera
+sudo ss -tan state established '( sport = :3000 )' | tail -n +2 | wc -l
+```
+
+El último comando devuelve un número, por ejemplo `12`: son doce conexiones TCP activas entre Nginx u otros clientes y la API. Durante poco tráfico es normal que sea bajo; compáralo con el valor habitual cuando recibas un `502`, lentitud o consumo alto de archivos abiertos.
+
+Para una vista rápida de los estados de conexión vinculados al puerto, usa:
+
+```bash
+sudo ss -tan '( sport = :3000 )' | awk 'NR > 1 {print $1}' | sort | uniq -c
+```
+
+Verás estados como `ESTAB` (conexión activa) o `TIME-WAIT` (conexión recién cerrada). Muchos `TIME-WAIT` por sí solos no son un fallo: pueden ser tráfico normal. No cierres conexiones a mano ni abras el puerto `3000` en el firewall para hacer esta prueba; ejecútala dentro del VPS y deja Nginx como único punto público.
+
 ### Comprobar una ruta de salud con `curl`
 
 Una ruta `GET /health` que no requiere credenciales es una comprobación pequeña y muy útil tras desplegar.
