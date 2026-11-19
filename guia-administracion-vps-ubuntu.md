@@ -547,6 +547,32 @@ sudo ss -tan '( sport = :3000 )' | awk 'NR > 1 {print $1}' | sort | uniq -c
 
 Verás estados como `ESTAB` (conexión activa) o `TIME-WAIT` (conexión recién cerrada). Muchos `TIME-WAIT` por sí solos no son un fallo: pueden ser tráfico normal. No cierres conexiones a mano ni abras el puerto `3000` en el firewall para hacer esta prueba; ejecútala dentro del VPS y deja Nginx como único punto público.
 
+### Entender `sport` y `dport` en filtros de `ss`
+
+En una conexión hay dos extremos. Para la API que actúa como servidor, el extremo local es `127.0.0.1:3000` y el extremo remoto suele ser un puerto temporal de Nginx, por ejemplo `127.0.0.1:49822`.
+
+```text
+Nginx: 127.0.0.1:49822  ───►  API Node.js: 127.0.0.1:3000
+        puerto remoto                 puerto local
+```
+
+- `sport` significa *source port* y, en la salida de `ss` de ese proceso, coincide con el puerto local.
+- `dport` significa *destination port* y coincide con el puerto del otro extremo o cliente.
+
+Por eso, para ver las conexiones que **recibe** la API local, el filtro correcto es:
+
+```bash
+sudo ss -tnp state established '( sport = :3000 )'
+```
+
+En cambio, `dport = :3000` sirve cuando tu VPS es el cliente que se conecta al puerto `3000` de otra máquina:
+
+```bash
+sudo ss -tnp state established '( dport = :3000 )'
+```
+
+Si el segundo comando no muestra nada en un VPS donde Node.js es el servidor, es normal: las conexiones entrantes tienen `3000` como puerto local (`sport`), no como puerto remoto. Usa `ss` solo para observar y diagnosticar; los filtros no abren puertos ni cambian la red.
+
 ### Comprobar una ruta de salud con `curl`
 
 Una ruta `GET /health` que no requiere credenciales es una comprobación pequeña y muy útil tras desplegar.
