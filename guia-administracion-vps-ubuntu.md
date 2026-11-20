@@ -130,6 +130,30 @@ sudo du -sh /var/log/* 2>/dev/null | sort -h
 
 No uses `rm -rf` para liberar espacio a ciegas. Los lugares frecuentes a revisar son builds antiguos, copias no necesarias y logs que hayan crecido demasiado.
 
+### Ver consumo por servicio con `systemd-cgtop`
+
+`top` muestra procesos individuales, pero una API Node.js puede tener varios procesos y Nginx varios trabajadores. `systemd-cgtop` los agrupa por servicio, igual que los administra `systemd`:
+
+```bash
+# Vista en tiempo real; pulsa q para salir
+sudo systemd-cgtop
+
+# Una sola captura, ordenada por memoria
+sudo systemd-cgtop --iterations=1 --order=memory
+```
+
+El resultado agrupa recursos de unidades como `mi-api.service`, `nginx.service` o `postgresql.service`. Si `mi-api.service` aparece usando mucha memoria, revisa sus logs y la aplicación; si `nginx.service` consume CPU durante un pico, compáralo con el número de conexiones mediante `ss`.
+
+Una salida simplificada podría verse así:
+
+```text
+Control Group       Tasks   %CPU   Memory
+/system.slice/mi-api.service     8    2.1%   210.5M
+/system.slice/nginx.service      5    0.3%    18.0M
+```
+
+Los valores cambian mientras la carga cambia, así que busca tendencias y compara con el estado habitual del VPS. Esta herramienta solo observa: no reinicia, limita ni mata servicios. No decidas aumentar RAM o reiniciar una API por una sola lectura puntual.
+
 ---
 
 ## 4. Revisar consumo de CPU, RAM, espacio y transferencia
