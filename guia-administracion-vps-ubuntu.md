@@ -905,6 +905,34 @@ curl -i http://localhost/api/health
 
 Si el primer comando funciona y el segundo no, el problema está en Nginx. Si ninguno funciona, está en Node.js, sus variables o su base de datos.
 
+### Identificar la versión exacta que vas a desplegar con Git
+
+Antes de instalar dependencias o reiniciar la API, confirma el commit que está en el VPS. Esto evita investigar una incidencia sin saber qué código se publicó:
+
+```bash
+cd /var/www/mi-api
+
+# No debe mostrar nada si no hay cambios locales sin guardar
+git status --short
+
+# Commit actual en formato corto y último cambio registrado
+git rev-parse --short HEAD
+git log -1 --format='%h | %ci | %s'
+```
+
+Ejemplo de resultado:
+
+```text
+a1b2c3d
+a1b2c3d | 2026-11-22 10:34:18 +0100 | Corrige el proxy de pedidos
+```
+
+Si `git status --short` no devuelve nada, el árbol de trabajo está limpio. Si aparecen líneas como `M src/app.service.ts` o `?? archivo.txt`, hay cambios locales que no pertenecen necesariamente al commit actual. Revisa esos cambios antes de continuar.
+
+Después de actualizar el código desde una fuente revisada, ejecuta de nuevo `git rev-parse --short HEAD` y anota ese identificador junto al despliegue. Si el servidor solo recibe `dist/` o archivos compilados y no contiene la carpeta `.git`, estos comandos no funcionarán: guarda entonces el hash del commit en tu proceso de despliegue, no inventes una versión.
+
+**Precaución:** no ejecutes `git pull` a ciegas en producción cuando existan cambios locales; puede producir conflictos o mezclar código no probado. Publica un commit conocido, compila y verifica `/health` después del reinicio.
+
 ### Revisar dependencias de producción con npm
 
 Antes de actualizar paquetes, mira qué dependencias tiene instalada la API y si npm detecta vulnerabilidades conocidas:
