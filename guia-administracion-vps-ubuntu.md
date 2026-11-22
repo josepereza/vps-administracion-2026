@@ -1003,6 +1003,30 @@ sudo systemctl status postgresql
 sudo -u postgres psql
 ```
 
+#### Comprobar si PostgreSQL está expuesto en la red
+
+Primero mira la dirección real donde escucha el proceso y, después, la configuración que PostgreSQL tiene cargada:
+
+```bash
+# Socket TCP que está escuchando en el puerto de PostgreSQL
+sudo ss -ltnp '( sport = :5432 )'
+
+# Dirección y puerto configurados en PostgreSQL
+sudo -u postgres psql -c "SHOW listen_addresses;"
+sudo -u postgres psql -c "SHOW port;"
+```
+
+Para una base de datos usada únicamente por aplicaciones del mismo VPS, lo normal es ver `127.0.0.1:5432` y `listen_addresses` con `localhost`. Eso permite que Node.js se conecte localmente, pero bloquea conexiones directas desde Internet.
+
+```text
+LISTEN 0 200 127.0.0.1:5432 0.0.0.0:*
+ listen_addresses
+------------------
+ localhost
+```
+
+Si aparece `0.0.0.0:5432` o `[::]:5432`, PostgreSQL acepta conexiones desde cualquier interfaz de red; no significa que cualquiera pueda entrar, pero aumenta la superficie de ataque. Además de `listen_addresses`, PostgreSQL usa `pg_hba.conf` para decidir quién puede autenticarse. No cambies esas opciones ni abras `5432` en UFW para "probar" una conexión: usa primero el socket local, una VPN o una regla de firewall limitada a una IP necesaria.
+
 Dentro de `psql`:
 
 ```sql
