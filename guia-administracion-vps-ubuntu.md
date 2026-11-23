@@ -346,6 +346,30 @@ sudo systemctl status mi-api --no-pager
 
 Si `systemd` ha bloqueado el servicio por demasiados reinicios, usa `sudo systemctl reset-failed mi-api` **solo después** de corregir la causa. No publiques la salida completa de `systemctl cat` si incluye secretos directamente en el servicio; guarda las claves en un `EnvironmentFile` con permisos restringidos.
 
+### Detectar ciclos de reinicio de una API
+
+Con `Restart=always`, `systemd` puede levantar una API después de que falle. Eso es útil, pero una aplicación que arranca y cae una y otra vez puede parecer disponible durante unos segundos. Consulta el contador de reinicios y el estado actual:
+
+```bash
+sudo systemctl show mi-api \
+  -p ActiveState -p SubState -p NRestarts -p RestartUSec
+
+sudo journalctl -u mi-api -b -n 60 --no-pager
+```
+
+Ejemplo:
+
+```text
+ActiveState=activating
+SubState=auto-restart
+NRestarts=7
+RestartUSec=5s
+```
+
+`NRestarts=7` significa que `systemd` ha intentado reiniciar la unidad siete veces desde que se creó su estado actual; `auto-restart` indica que está esperando antes de otro intento. En una API estable, lo habitual es `ActiveState=active`, `SubState=running` y un contador que no aumenta mientras observas el servicio.
+
+No solucionas un ciclo reiniciando repetidamente o ejecutando `reset-failed` sin más: revisa primero las últimas líneas del journal, variables de entorno, puerto `3000`, permisos y conexión a la base de datos. Un valor `NRestarts=0` tampoco descarta fallos de arranques anteriores; `journalctl -u mi-api -b` limita la revisión al arranque actual del VPS.
+
 ### Servicio para una API NestJS
 
 Archivo `/etc/systemd/system/mi-api.service`:
