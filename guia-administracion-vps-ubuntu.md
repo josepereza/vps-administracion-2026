@@ -370,6 +370,30 @@ RestartUSec=5s
 
 No solucionas un ciclo reiniciando repetidamente o ejecutando `reset-failed` sin más: revisa primero las últimas líneas del journal, variables de entorno, puerto `3000`, permisos y conexión a la base de datos. Un valor `NRestarts=0` tampoco descarta fallos de arranques anteriores; `journalctl -u mi-api -b` limita la revisión al arranque actual del VPS.
 
+### Encontrar qué retrasa el arranque del VPS
+
+Después de reiniciar, una API Node.js o Nginx puede tardar en estar lista porque otro servicio o una dependencia aún está arrancando. `systemd-analyze` permite investigarlo sin modificar nada:
+
+```bash
+# Las 15 unidades que más tiempo declararon tardar al arrancar
+systemd-analyze blame | head -n 15
+
+# Cadena de dependencias que llevó hasta una API concreta
+systemd-analyze critical-chain mi-api.service
+```
+
+La primera orden puede mostrar una salida parecida a esta:
+
+```text
+3.421s postgresql.service
+1.207s mi-api.service
+ 842ms nginx.service
+```
+
+`blame` ordena las unidades por su tiempo de inicio; `critical-chain` enseña la ruta de dependencias y los momentos en que se activaron. Por ejemplo, si `mi-api.service` espera a la red o a PostgreSQL, esa relación aparecerá en la cadena. Es útil para decidir si debes revisar una base de datos lenta, una dependencia de red o el tiempo de inicialización de tu aplicación.
+
+**Precaución:** el primer puesto de `blame` no siempre es la causa de que el VPS tarde más: muchas unidades arrancan en paralelo. No desactives ni cambies el orden de un servicio solo por aparecer lento; confirma primero la cadena crítica y revisa los logs del servicio afectado.
+
 ### Servicio para una API NestJS
 
 Archivo `/etc/systemd/system/mi-api.service`:
