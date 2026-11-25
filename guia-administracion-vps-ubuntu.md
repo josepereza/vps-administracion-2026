@@ -645,6 +645,32 @@ sudo ss -tnp state established '( dport = :3000 )'
 
 Si el segundo comando no muestra nada en un VPS donde Node.js es el servidor, es normal: las conexiones entrantes tienen `3000` como puerto local (`sport`), no como puerto remoto. Usa `ss` solo para observar y diagnosticar; los filtros no abren puertos ni cambian la red.
 
+### Probar si la API alcanza una dependencia con `nc`
+
+Que PostgreSQL, Redis o un servicio externo estén escuchando no garantiza que la API pueda conectarse a ellos. `nc` (*netcat*) permite comprobar una conexión TCP concreta sin enviar datos ni modificar la configuración:
+
+```bash
+# PostgreSQL local: espera como máximo 3 segundos
+nc -zvw 3 127.0.0.1 5432
+
+# API Node.js local
+nc -zvw 3 127.0.0.1 3000
+```
+
+- `-z` comprueba el puerto sin abrir una sesión interactiva.
+- `-v` muestra el resultado.
+- `-w 3` limita la espera a tres segundos.
+
+Cuando el proceso acepta conexiones, la salida será similar a:
+
+```text
+Connection to 127.0.0.1 5432 port [tcp/postgresql] succeeded!
+```
+
+`Connection refused` suele indicar que el servicio no está escuchando en esa dirección o puerto; un tiempo de espera puede apuntar a una ruta, firewall o servidor remoto inaccesible. Si el comando no existe, instálalo una vez con `sudo apt install netcat-openbsd`.
+
+**Precaución:** esta prueba solo confirma que el puerto TCP responde; no valida usuario, contraseña ni permisos de la base de datos. Haz las comprobaciones habituales contra `127.0.0.1` cuando el servicio sea local. No uses `nc -z` para recorrer rangos de puertos o sistemas externos sin autorización.
+
 ### Comprobar una ruta de salud con `curl`
 
 Una ruta `GET /health` que no requiere credenciales es una comprobación pequeña y muy útil tras desplegar.
