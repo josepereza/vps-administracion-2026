@@ -955,6 +955,34 @@ Lo esperado es una respuesta `HTTP/1.1 200 OK` y que la web muestre la nueva ver
 
 **Precaución:** revisa siempre primero la simulación. `--delete` puede borrar archivos en el destino si indicas una ruta incorrecta. La barra final de `browser/` también importa: copia el contenido de esa carpeta, no la carpeta como un nivel adicional.
 
+### Verificar que el archivo desplegado es idéntico con `sha256sum`
+
+Cuando despliegas desde tu ordenador al VPS, una huella SHA-256 permite comparar un archivo concreto sin abrirlo. Es útil si sospechas que el `index.html` o un archivo JavaScript no llegó como esperabas:
+
+```bash
+# En el equipo donde has generado Angular
+sha256sum dist/mi-app/browser/index.html
+
+# En el VPS, sobre el archivo que publica Nginx
+sha256sum /var/www/mi-app/index.html
+```
+
+Cada comando empieza con una cadena larga seguida del nombre del archivo. Si ambas cadenas son iguales, los bytes son idénticos. Por ejemplo:
+
+```text
+1f4f...9a2c  index.html
+```
+
+Si despliegas por SSH, puedes consultar la huella del VPS desde tu equipo:
+
+```bash
+ssh usuario@tu-vps "sha256sum /var/www/mi-app/index.html"
+```
+
+Una huella distinta indica que los archivos no coinciden; revisa la ruta de `rsync`, el directorio `root` de Nginx y si volviste a ejecutar `npm run build` antes de copiar.
+
+**Precaución:** compara archivos estáticos concretos tras el despliegue; no generes ni publiques huellas de archivos con secretos, como `.env`, claves privadas o copias de bases de datos. La coincidencia de SHA-256 confirma los bytes, pero no sustituye probar la web y sus rutas con `curl` o un navegador.
+
 ---
 
 ## 11. Desplegar Node.js / NestJS
