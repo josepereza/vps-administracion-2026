@@ -130,6 +130,26 @@ sudo du -sh /var/log/* 2>/dev/null | sort -h
 
 No uses `rm -rf` para liberar espacio a ciegas. Los lugares frecuentes a revisar son builds antiguos, copias no necesarias y logs que hayan crecido demasiado.
 
+### Saber qué disco contiene una ruta con `findmnt`
+
+Antes de limpiar `/var/www`, restaurar una copia o ampliar disco, confirma qué sistema de archivos contiene realmente la ruta. `findmnt -T` resuelve la ruta indicada y muestra su punto de montaje:
+
+```bash
+findmnt -T /var/www/mi-app
+df -hT /var/www/mi-app
+```
+
+Una salida posible de `findmnt` es:
+
+```text
+TARGET SOURCE      FSTYPE OPTIONS
+/      /dev/vda1   ext4   rw,relatime
+```
+
+En este ejemplo, la aplicación está en la partición montada en `/`; por tanto, su espacio cuenta dentro del porcentaje que muestra `df -h /`. `df -hT` añade el tipo de sistema de archivos y el espacio libre solo para ese destino.
+
+**Precaución:** si ves que la ruta pertenece a un volumen distinto, una partición montada o un montaje de red, no asumas que liberar espacio en `/` resolverá el problema. `findmnt` solo inspecciona: úsalo antes de cambiar `/etc/fstab`, desmontar discos o borrar directorios.
+
 ### Ver consumo por servicio con `systemd-cgtop`
 
 `top` muestra procesos individuales, pero una API Node.js puede tener varios procesos y Nginx varios trabajadores. `systemd-cgtop` los agrupa por servicio, igual que los administra `systemd`:
